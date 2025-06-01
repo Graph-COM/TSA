@@ -1,0 +1,9 @@
+# @package _global_
+adapter_config:
+  name: GTrans
+  lr_feat: 0.001
+  lr_adj: 0.01
+  epochs: 5
+  ratio: 0.1
+  loop_feat: 1
+  loop_adj: 2

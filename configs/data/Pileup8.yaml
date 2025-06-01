@@ -1,0 +1,9 @@
+# @package _global_
+data_config:
+  name: Pileup
+  root: ./data/Pileup
+  source: gg_10
+  target: qq_10
+  input_dim : 28
+  num_classes: 4
+  target_val: 0.03

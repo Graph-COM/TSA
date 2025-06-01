@@ -1,0 +1,6 @@
+# @package _global_
+adapter_config:
+  name: HomoTTT
+  epochs: 1
+  lr: 0.001
+  k0: 0.01

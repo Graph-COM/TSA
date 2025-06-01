@@ -1,0 +1,7 @@
+# @package _global_
+adapter_config:
+  name: Matcha_T3A
+  iter_epochs: 10
+  ada_lr: 1
+  base_tta: T3A
+  filter_K: 20

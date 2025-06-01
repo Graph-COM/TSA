@@ -1,0 +1,19 @@
+# @package _global_
+adapter_config:
+  name: TSA_LAME
+  iter_epochs: 10
+  scale_epochs: 10
+  scale_lr: 0.001
+  scale_label: entropy
+  scale_thre: 0.1
+  pa_ratio: 0.01
+  init_type: predict_target
+  cal_type: predict_target
+  reweight: no_rew
+  alpha: 1.0
+  weight_deg_norm: ctr_deg
+  base_tta: LAME
+  epochs: 50
+  kNN: 5
+  kernel: kNN
+  sigma: 1

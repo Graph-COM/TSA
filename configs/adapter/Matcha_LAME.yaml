@@ -1,0 +1,10 @@
+# @package _global_
+adapter_config:
+  name: Matcha_LAME
+  iter_epochs: 10
+  ada_lr: 1
+  base_tta: LAME
+  epochs: 50
+  kNN: 5
+  kernel: kNN
+  sigma: 1

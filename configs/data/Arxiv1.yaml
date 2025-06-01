@@ -1,0 +1,9 @@
+# @package _global_
+data_config:
+  name: Arxiv
+  root: ./data/ogbn_arxiv
+  source: "1950_2007"
+  target: "2014_2016"
+  input_dim : 128
+  num_classes: 40
+  target_val: 0.03

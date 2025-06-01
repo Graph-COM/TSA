@@ -1,0 +1,10 @@
+# @package _global_
+data_config:
+  name: CSBM
+  root: ./data/CSBM
+  source: src_imb
+  target: nbr1
+  sigma: 0.3
+  input_dim : 3
+  num_classes: 3
+  target_val: 0.03

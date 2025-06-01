@@ -1,0 +1,6 @@
+# @package _global_
+adapter_config:
+  name: ActMAD
+  epochs: 1
+  lr: 0.01
+  weight_decay: 5e-4

@@ -1,0 +1,46 @@
+defaults:
+  - _self_
+  - data: CSBM1
+  - model: GSN
+  - adapter: TSA_T3A
+  # - override hydra/hydra_logging: disabled  
+  # - override hydra/job_logging: disabled  
+
+hydra:
+  output_subdir: null  
+  run:
+    dir: ./outputs/${model_config.train_type}/${data_config.name}/${model_config.name}/${adapter_config.name}/
+  job_logging:
+    handlers:
+      file:
+        class: logging.FileHandler
+        formatter: simple
+        filename: ${hydra.run.dir}/${now:%H-%M-%S}.log
+
+general_config:
+  seed: [99] #[99,30,50,23,73]
+  device: cuda:0
+  log_dir: ./outputs/${model_config.train_type}/${data_config.name}/${model_config.name}/${adapter_config.name}/
+
+
+data_config:
+  seed: ???
+
+
+model_config:
+  root: ./model
+  data_name: ${data_config.name}
+  source: ${data_config.source}
+  input_dim: ${data_config.input_dim}
+  num_classes: ${data_config.num_classes}
+  seed: ???
+  device: ${general_config.device}
+  source_stats: predict_source
+
+adapter_config:
+  seed: ???
+  device: ${general_config.device}
+  calibration: False
+  source: ${data_config.source}
+  target: ${data_config.target}
+  data_name: ${data_config.name}

@@ -1,0 +1,9 @@
+# @package _global_
+data_config:
+  name: DBLP_ACM
+  root: ./data/DBLP_ACM
+  source: acm
+  target: dblp
+  input_dim : 7537
+  num_classes: 6
+  target_val: 0.03

@@ -1,0 +1,4 @@
+# @package _global_
+adapter_config:
+  name: T3A
+  filter_K: 20

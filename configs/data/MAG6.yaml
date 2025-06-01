@@ -1,0 +1,10 @@
+# @package _global_
+data_config:
+  name: MAG
+  root: ./data/MAG
+  source: CN
+  target: US
+  input_dim : 128
+  num_classes: 20
+  target_val: 0.03
+  synthetic: False

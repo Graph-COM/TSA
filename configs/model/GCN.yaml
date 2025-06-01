@@ -1,0 +1,19 @@
+# @package _global_
+model_config:
+  name: GCN
+  cls_layers: 2
+  gnn_layers: 3
+  gnn_dim: 300
+  cls_dim: 300
+  bn_feature: False
+  bn_classifier: True
+  epochs: 400
+  opt_decay_step: 50
+  opt_decay_rate: 0.9
+  learning_rate: 0.003
+  dropout: 0.5
+  weigh_decay: 0
+  loss_name: cross_entropy
+  patience: 10
+  train_type: no_bal
+  # train_type: no_bal or bal

@@ -1,0 +1,10 @@
+# @package _global_
+adapter_config:
+  name: Matcha_TENT
+  iter_epochs: 10
+  ada_lr: 1
+  base_tta: TENT
+  bn_feature: ${model_config.bn_feature}
+  bn_classifier: ${model_config.bn_classifier}
+  epochs: 1
+  lr: 0.001

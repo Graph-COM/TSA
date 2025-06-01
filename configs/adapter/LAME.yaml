@@ -1,0 +1,7 @@
+# @package _global_
+adapter_config:
+  name: LAME
+  epochs: 50
+  kNN: 5
+  kernel: kNN
+  sigma: 1
