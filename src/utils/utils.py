@@ -80,51 +80,12 @@ def to_boolean_mask(idx_mask, total_nodes):
     return torch.from_numpy(boolean_mask)
 
 
-def nbr_label_prob_0(data: Data, nbr_label: Tensor) -> Tensor:
-    """
-    Generate a mask that indicates whether a node does not have a neighbor with a specific label.
-    Returns a boolean tensor of shape (num_classes, num_nodes) where each row corresponds to a label.
-    """
-    nbr_label_count = torch.zeros(
-        (data.num_classes, data.num_nodes), device=nbr_label.device
-    )
-
-    nbr_mask = (
-        nbr_label
-        == torch.arange(data.num_classes, device=nbr_label.device).unsqueeze(1)
-    ).float()
-    nbr_label_count.scatter_add_(
-        1, data.edge_index[1].unsqueeze(0).expand(data.num_classes, -1), nbr_mask
-    )
-    nbr_label_mask = nbr_label_count == 0
-    return nbr_label_mask
-
-
-def nbr_label_prob_1(data: Data, nbr_label: Tensor) -> Tensor:
-    """
-    Generate a mask that indicates whether a node only have neighbors with a specific label.
-    Returns a boolean tensor of shape (num_classes, num_nodes) where each row corresponds to a label.
-    """
-    nbr_label_count = torch.zeros(
-        (data.num_classes, data.num_nodes), device=nbr_label.device
-    )
-
-    nbr_mask = (
-        nbr_label
-        == torch.arange(data.num_classes, device=nbr_label.device).unsqueeze(1)
-    ).float()
-    nbr_label_count.scatter_add_(
-        1, data.edge_index[1].unsqueeze(0).expand(data.num_classes, -1), nbr_mask
-    )
-    degrees = degree(data.edge_index[0], data.num_nodes, dtype=torch.long)
-    nbr_label_mask = nbr_label_count == degrees
-    return nbr_label_mask
-
 class SaveEmb:
     """
     Class object to save model forward feature ebmeddings.
     from "https://github.com/jmiemirza/ActMAD/"
     """
+
     def __init__(self):
         self.outputs = []
         self.int_mean = []

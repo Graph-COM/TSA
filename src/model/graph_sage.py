@@ -2,26 +2,19 @@ from typing import List, Optional
 
 import torch
 import torch.nn.functional as F
-import torch_geometric.nn as pyg_nn
+from omegaconf import DictConfig
 from torch import Tensor, nn
-from torch.autograd import Function
 from torch.nn import Parameter
 from torch_geometric.data import Data
 from torch_geometric.nn import MessagePassing
-from torch_geometric.nn.conv import MessagePassing
-from torch_geometric.nn.conv.gcn_conv import gcn_norm
-from torch_geometric.nn.dense.linear import Linear
-from torch_geometric.nn.inits import zeros
-from torch_geometric.typing import Adj, OptPairTensor, OptTensor
-from torch_geometric.utils import degree
 
-from src.utils import SaveEmb
+from src.utils import Metrics, SaveEmb
 
 from .base_model import BaseModel
 from .model_manager import MODEL_REGISTRY
 
 
-class GS_reweight(pyg_nn.MessagePassing):
+class GS_reweight(MessagePassing):
     def __init__(self, in_channels, out_channels, reducer, normalize_embedding=False):
         super().__init__(aggr=reducer, flow="source_to_target")
         self.lin = torch.nn.Linear(in_channels, out_channels)
@@ -53,12 +46,12 @@ class GS_reweight(pyg_nn.MessagePassing):
         if self.normalize_emb:
             aggr_out = F.normalize(aggr_out, p=2, dim=-1)
 
-        return aggr_out, self_feat, nbr_feat
+        return aggr_out
 
 
 @MODEL_REGISTRY.register()
 class GSN(BaseModel):
-    def __init__(self, metrics, args):
+    def __init__(self, metrics: Metrics, args: DictConfig):
         super().__init__(metrics, args)
         input_dim, output_dim = args.input_dim, args.num_classes
 
@@ -90,9 +83,11 @@ class GSN(BaseModel):
                 self.mlp_classify.append(nn.Linear(args.cls_dim, args.cls_dim))
             self.mlp_classify.append(nn.Linear(args.cls_dim, output_dim))
 
-    def forward(self, data):
+    def forward(self, data: Data):
         x, edge_index, edge_weight = data.x, data.edge_index, data.edge_weight
+
         for i, layer in enumerate(self.conv):
+            x = layer(x, edge_index, edge_weight)
             if self.bn_feature and (i != len(self.conv) - 1):
                 x = self.bns[i](x)
             x = F.relu(x)
@@ -105,10 +100,8 @@ class GSN(BaseModel):
                 if self.bn_classifier:
                     y = self.bn_mlp(y)
                 y = F.relu(y)
-        if self.iscalibrated:
-            return x, self.calibrated(y)
-        else:
-            return x, y
+
+        return x, y
 
     def _custom_src_stats(self, data: Data):
         chosen_layers = []

@@ -50,10 +50,8 @@ class Metrics:
         else:
             self.metrics[name.lower() + "_accuracy"].append(
                 accuracy_score(labels, predicted)
-            )                        
+            )
 
-        sample_weight = np.ones_like(labels, dtype=float)
-        # sample_weight[labels == 19] = 0
         if self.data_name == "Pileup":
             idx = (labels != 2) & (labels != 3)
             b_label = labels[idx]
@@ -74,7 +72,6 @@ class Metrics:
                     average="binary",
                 )
             )
-            self.metrics[name.lower() + "_rank_accuracy"].append(rank_accuracy(labels[idx], probs[idx]))
         elif self.data_name == "MAG":
             idx = labels != len(np.unique(labels)) - 1
             self.metrics[name.lower() + "_bal_accuracy"].append(
@@ -86,7 +83,7 @@ class Metrics:
                     predicted,
                     average="macro" if probs.shape[1] > 2 else "binary",
                 )
-            )                                    
+            )
         else:
             self.metrics[name.lower() + "_bal_accuracy"].append(
                 balanced_accuracy_score(labels, predicted)
@@ -98,19 +95,9 @@ class Metrics:
                     average="macro" if probs.shape[1] > 2 else "binary",
                 )
             )
-        # pdb.set_trace()
-        # self.metrics[name.lower() + "_auc"].append(
-        #     roc_auc_score(
-        #         labels,
-        #         probs_for_auc,
-        #         multi_class="ovr" if probs.shape[1] > 2 else "raise",
-        #     )
-        # )
-        ece = compute_ece(labels, probs, n_bins=10)
-        self.metrics[name.lower() + "_ece"].append(ece)
 
         results = f"{name.lower()} : "
-        for metric in ["accuracy", "bal_accuracy", "f1_score", "ece"]:
+        for metric in ["accuracy", "bal_accuracy", "f1_score"]:
             metric_name = f"{name.lower()}_{metric}"
             results += f"{metric}: {self.metrics[metric_name][-1]*100:.2f} "
         logging.info(results)
@@ -146,7 +133,7 @@ class Metrics:
             elif "time" in key.split("_"):
                 mean = np.mean(values)
                 std = np.std(values)
-                logging.info(f"{key}: {mean:.3f}$\pm${std:.3f}")                
+                logging.info(f"{key}: {mean:.3f}$\pm${std:.3f}")
             else:
                 mean = np.mean(values)
                 std = np.std(values)
@@ -174,34 +161,3 @@ class Metrics:
 
         df = pd.DataFrame([self.metrics])
         df.to_csv(filename, index=False)
-
-
-def compute_ece(labels, probs, n_bins=10):
-    bin_boundaries = np.linspace(0, 1, n_bins + 1)
-    bin_lowers = bin_boundaries[:-1]
-    bin_uppers = bin_boundaries[1:]
-    pred = np.argmax(probs, axis=1)
-    conf = np.max(probs, axis=1)
-
-    ece = 0.0
-    for bin_lower, bin_upper in zip(bin_lowers, bin_uppers):
-        in_bin = (conf >= bin_lower) & (conf < bin_upper)
-        prop_in_bin = in_bin.mean()
-        if prop_in_bin > 0:
-            accuracy_in_bin = (labels[in_bin] == pred[in_bin]).mean()
-            avg_confidence_in_bin = conf[in_bin].mean()
-            ece += np.abs(avg_confidence_in_bin - accuracy_in_bin) * prop_in_bin
-
-    return ece
-
-def rank_accuracy(labels, probs):
-    class1_scores = probs[:, 1]
-    sorted_indices = np.argsort(class1_scores)[::-1]
-    # Apply the threshold to determine class predictions
-    threshold_index = np.bincount(labels)[-1]
-    ranked_labels = np.zeros(len(class1_scores), dtype=int)
-    ranked_labels[sorted_indices[:threshold_index]] = 1  # Set top samples to class 1
-
-    # Calculate accuracy by comparing predicted labels with true labels
-    correct_predictions = np.sum(ranked_labels == labels)
-    return correct_predictions / len(labels)

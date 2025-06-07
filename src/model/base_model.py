@@ -16,13 +16,7 @@ from torch_geometric.typing import Adj, OptTensor
 from torch_geometric.utils import add_remaining_self_loops, degree, scatter
 from torch_geometric.utils.num_nodes import maybe_num_nodes
 
-from src.utils import (
-    Metrics,
-    SaveEmb,
-    nbr_label_prob_0,
-    nbr_label_prob_1,
-    replace_nan_with_uniform,
-)
+from src.utils import Metrics
 
 
 def gcn_norm(  # noqa: F811
@@ -79,7 +73,6 @@ class BaseModel(nn.Module):
         )
         self.model_path.parent.mkdir(parents=True, exist_ok=True)
         self.metrics = metrics
-        self.iscalibrated = False
 
     def forward(self, data):
         # Define the forward pass
@@ -92,19 +85,8 @@ class BaseModel(nn.Module):
         scheduler = optim.lr_scheduler.StepLR(
             optimizer, step_size=self.opt_decay_step, gamma=self.opt_decay_rate
         )
-        if self.model_config.train_type == "bal":
-            class_counts = torch.bincount(data.y[data.src_train_mask])
-            class_weights = 1.0 / class_counts.float()
-            class_weights[torch.isinf(class_weights)] = 0
-            class_weights = class_weights / class_weights.sum()
-            print(class_weights)
-            criterion = nn.CrossEntropyLoss(weight=class_weights)
-        elif self.model_config.train_type == "no_bal":
-            criterion = nn.CrossEntropyLoss()
-        # pdb.set_trace()
-        # data.src_train_mask = torch.logical_and(data.src_train_mask, data.y != 19)
-        # data.src_val_mask = torch.logical_and(data.src_val_mask, data.y != 19)
-        # data.src_test_mask = torch.logical_and(data.src_test_mask, data.y != 19)
+        criterion = nn.CrossEntropyLoss()
+
         for epoch in range(self.epochs):
             self.train()  # Set the model to training mode
             optimizer.zero_grad()
@@ -156,44 +138,6 @@ class BaseModel(nn.Module):
             probs = F.softmax(outputs, dim=-1)
             self.metrics.calculate_metrics(probs[mask], data.y[mask], mask_name)
         return probs
-
-    def calibrate(self, data: Data):
-        self.iscalibrated = True
-        self.register_parameter("T", torch.nn.Parameter(torch.ones(1)))
-        self.register_parameter("b", torch.nn.Parameter(torch.zeros(data.num_classes)))
-        bcts_optimizer = torch.optim.Adam([self.T, self.b], lr=0.1)
-        self.eval()
-        self.to(self.device)
-        data = data.to(self.device)
-        class_counts = torch.bincount(data.y[data.src_val_mask])
-        class_weights = 1.0 / class_counts.float()
-        class_weights = class_weights / class_weights.sum()
-        criterion = nn.CrossEntropyLoss(weight=class_weights)
-        for epoch in range(50):
-            bcts_optimizer.zero_grad()
-            _, outputs = self(data)
-            loss = criterion(outputs[data.src_val_mask], data.y[data.src_val_mask])
-            loss.backward()
-            bcts_optimizer.step()
-            cal_loss = loss.item()
-
-            with torch.no_grad():
-                _, predicted = torch.max(outputs, 1)
-
-                val_accuracy = (
-                    (predicted[data.src_val_mask] == data.y[data.src_val_mask])
-                    .float()
-                    .mean()
-                    .item()
-                )
-
-            # print(
-            #     f"Calibration Epoch {epoch+1}, Cal/Val Loss: {cal_loss}, Val Accuracy: {val_accuracy}"
-            # )
-        print(f"self.T {self.T}, self.b {self.b}")
-
-    def calibrated(self, logits):
-        return (logits / self.T) + self.b
 
     def get_pretrain(self, data: Data):
         """
@@ -292,7 +236,6 @@ class BaseModel(nn.Module):
         counts = torch.bincount(ctr_label, minlength=data.num_classes)
         counts = counts.float()
         edge_probs = sum_probs / counts.unsqueeze(1)
-        # edge_probs = replace_nan_with_uniform(edge_probs)
         return edge_probs
 
     def cal_edge_distr_soft(self, data: Data, probs: Optional[Tensor] = None):
@@ -320,7 +263,7 @@ class BaseModel(nn.Module):
         edge_probs_sum = edge_probs.sum(dim=1).unsqueeze(1)
         return edge_probs / edge_probs_sum
 
-    def cal_edge_distr_true(self, data: Data, degree_one: bool = True):
+    def cal_edge_distr_true(self, data: Data):
         """
         Compute the true edge distribution using node label
 
@@ -336,58 +279,17 @@ class BaseModel(nn.Module):
         _, ctr_label = torch.max(ctr_probs, 1)
 
         nbr_probs = probs[data.edge_index[0]]
-        _, nbr_label = torch.max(nbr_probs, 1)
-
-        if not degree_one:
-            degrees = degree(data.edge_index[0], data.num_nodes, dtype=torch.long)
-            # Filter out degree one edges
-            not_degree_one = degrees != 1
-            mask = not_degree_one[data.edge_index[1]]
-        else:
-            mask = torch.ones_like(ctr_label).bool()
 
         sum_probs = torch.zeros(
             (data.num_classes, data.num_classes), device=self.device
-        )  # Shape [3, 3]
+        )  # Shape [N, N]
         sum_probs.scatter_add_(
             0,
-            ctr_label[mask].unsqueeze(1).expand(-1, nbr_probs[mask].size(1)),
-            nbr_probs[mask].float(),
+            ctr_label.unsqueeze(1).expand(-1, nbr_probs.size(1)),
+            nbr_probs.float(),
         )
 
-        # # Do not contain prob0 and prob1
-        # nbr_label_mask = ~torch.logical_or(
-        #     nbr_label_prob_1(data, nbr_label), nbr_label_prob_0(data, nbr_label)
-        # )
-        # counts = torch.zeros((data.num_classes, data.num_classes), device=self.device)
-        # for i in range(data.num_classes):
-        #     for j in range(data.num_classes):
-        #         # pdb.set_trace()
-        #         ctr_nbr_label_mask = nbr_label_mask[j][data.edge_index[1]]
-        #         counts[i, j] = (
-        #             torch.logical_and(ctr_nbr_label_mask, ctr_label == i).sum().item()
-        #         )
-
-        # # Subtract prob1 that was counted in sum_probs
-        # sum_deg_1 = torch.zeros(
-        #     (data.num_classes, data.num_classes), device=self.device
-        # )
-        # for i in range(data.num_classes):
-        #     for j in range(data.num_classes):
-        #         deg_1_mask = nbr_label_prob_1(data, nbr_label)[j][data.edge_index[1]]
-        #         sum_deg_1[i, j] = (
-        #             torch.logical_and(deg_1_mask, ctr_label == i).sum().item()
-        #         )
-
-        # edge_probs = (sum_probs - sum_deg_1) / counts
-
-        # edge_probs = (sum_probs) / counts
-        # pdb.set_trace()
-        # expanded_degrees = degrees.unsqueeze(0).expand(nbr_label_count_mask.size(0), -1)
-        # masked_degrees = expanded_degrees[nbr_label_count_mask.bool()]
-
-        counts = torch.bincount(ctr_label[mask], minlength=data.num_classes)
+        counts = torch.bincount(ctr_label, minlength=data.num_classes)
         counts = counts.float()
         edge_probs = sum_probs / counts.unsqueeze(1)
-        # pdb.set_trace()
         return edge_probs

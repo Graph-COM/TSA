@@ -3,13 +3,13 @@ from typing import List, Optional
 import numpy as np
 import torch
 import torch.nn.functional as F
+from omegaconf import DictConfig
 from torch import Tensor, nn
 from torch.nn import BatchNorm1d, Linear, Parameter
 from torch_geometric.data import Data
 from torch_geometric.nn import MessagePassing
-from torch_geometric.utils import add_remaining_self_loops, degree, scatter
 
-from src.utils import SaveEmb
+from src.utils import Metrics, SaveEmb
 
 from .base_model import BaseModel, gcn_norm
 from .model_manager import MODEL_REGISTRY
@@ -70,7 +70,7 @@ class GPR_prop(MessagePassing):
         elif self.Init == "WS":
             self.temp.data = self.Gamma
 
-    def forward(self, x, edge_index, edge_weight):
+    def forward(self, x: Tensor, edge_index: Tensor, edge_weight: Tensor):
         hidden = x * (self.temp[0])
         for k in range(self.K):
             if hasattr(self, "_scaled_edge_weights"):
@@ -97,7 +97,7 @@ class GPR_prop(MessagePassing):
 
 @MODEL_REGISTRY.register()
 class GPRGNN(BaseModel):
-    def __init__(self, metrics, args):
+    def __init__(self, metrics: Metrics, args: DictConfig):
         super().__init__(metrics, args)
         self.lin1 = Linear(args.input_dim, args.gnn_dim)
         self.lin2 = Linear(args.gnn_dim, args.gnn_dim)
@@ -128,7 +128,7 @@ class GPRGNN(BaseModel):
     def reset_parameters(self):
         self.prop1.reset_parameters()
 
-    def forward(self, data):
+    def forward(self, data: Data):
         x, edge_index, edge_weight = data.x, data.edge_index, data.edge_weight
 
         x = F.dropout(x, p=self.dropout, training=self.training)
@@ -153,10 +153,8 @@ class GPRGNN(BaseModel):
                 if self.bn_classifier:
                     y = self.bn_mlp(y)
                 y = F.relu(y)
-        if self.iscalibrated:
-            return x, self.calibrated(y)
-        else:
-            return x, y
+
+        return x, y
 
     def _custom_src_stats(self, data: Data):
         chosen_layers = []

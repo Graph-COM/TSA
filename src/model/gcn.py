@@ -1,22 +1,20 @@
-from typing import Optional, List
+from typing import List, Optional
 
-import numpy as np
 import torch
 import torch.nn.functional as F
+from omegaconf import DictConfig
 from torch import Tensor, nn
-from torch.nn import BatchNorm1d, Linear, Parameter
-import torch_geometric.nn as pyg_nn
-from torch_geometric.utils import degree, add_remaining_self_loops, scatter
+from torch.nn import Parameter
 from torch_geometric.data import Data
+from torch_geometric.nn import MessagePassing
+
+from src.utils import Metrics, SaveEmb
 
 from .base_model import BaseModel, gcn_norm
 from .model_manager import MODEL_REGISTRY
-from src.utils import SaveEmb
 
 
-
-
-class GCN_reweight(pyg_nn.MessagePassing):
+class GCN_reweight(MessagePassing):
     def __init__(self, in_channels, out_channels):
         super().__init__(aggr="add")
         self.lin = torch.nn.Linear(in_channels, out_channels, bias=False)
@@ -27,9 +25,11 @@ class GCN_reweight(pyg_nn.MessagePassing):
         self.lin.reset_parameters()
         self.bias.data.zero_()
 
-    def forward(self, x, edge_index, edge_weight):
+    def forward(self, x: Tensor, edge_index: Tensor, edge_weight: Tensor):
         num_nodes = x.size(0)
-        edge_index, edge_weight = gcn_norm(edge_index, edge_weight, num_nodes=num_nodes, dtype=x.dtype)
+        edge_index, edge_weight = gcn_norm(
+            edge_index, edge_weight, num_nodes=num_nodes, dtype=x.dtype
+        )
         x = self.lin(x)
 
         out = self.propagate(
@@ -39,17 +39,16 @@ class GCN_reweight(pyg_nn.MessagePassing):
             edge_weight=edge_weight,
         )
         out = out + self.bias
-        return out 
+        return out
 
     def message(self, x_j, edge_index, edge_weight):
         x_j = edge_weight.view(-1, 1) * x_j
         return x_j
 
 
-
 @MODEL_REGISTRY.register()
 class GCN(BaseModel):
-    def __init__(self, metrics, args):
+    def __init__(self, metrics: Metrics, args: DictConfig):
         super().__init__(metrics, args)
         input_dim, output_dim = args.input_dim, args.num_classes
 
@@ -81,7 +80,7 @@ class GCN(BaseModel):
                 self.mlp_classify.append(nn.Linear(args.cls_dim, args.cls_dim))
             self.mlp_classify.append(nn.Linear(args.cls_dim, output_dim))
 
-    def forward(self, data):
+    def forward(self, data: Data):
         x, edge_index, edge_weight = data.x, data.edge_index, data.edge_weight
 
         for i, layer in enumerate(self.conv):
@@ -99,10 +98,7 @@ class GCN(BaseModel):
                 if self.bn_classifier:
                     y = self.bn_mlp(y)
                 y = F.relu(y)
-        if self.iscalibrated:
-            return x, self.calibrated(y)
-        else:
-            return x, y
+        return x, y
 
     def _custom_src_stats(self, data: Data):
         chosen_layers = []
@@ -115,16 +111,23 @@ class GCN(BaseModel):
         clean_mean = []
         clean_var = []
 
-        hooks = [chosen_layers[i].register_forward_hook(hook_list[i]) for i in range(n_chosen_layers)]
+        hooks = [
+            chosen_layers[i].register_forward_hook(hook_list[i])
+            for i in range(n_chosen_layers)
+        ]
         with torch.no_grad():
             self.eval()
             _ = self(data)
             for yy in range(n_chosen_layers):
-                hook_list[yy].statistics_update(), hook_list[yy].clear(), hooks[yy].remove()
+                hook_list[yy].statistics_update(), hook_list[yy].clear(), hooks[
+                    yy
+                ].remove()
 
         for i in range(n_chosen_layers):
-            clean_mean.append(hook_list[i].pop_mean()), clean_var.append(hook_list[i].pop_var())
-            
+            clean_mean.append(hook_list[i].pop_mean()), clean_var.append(
+                hook_list[i].pop_var()
+            )
+
         return {
             "src_feat_mean": clean_mean,
             "src_feat_var": clean_var,
