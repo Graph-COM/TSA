@@ -1,9 +1,6 @@
 import copy
-import os
 import random
-import sys
 from math import pi
-from pathlib import Path
 
 import numpy as np
 import torch
@@ -128,15 +125,12 @@ class Pileup(InMemoryDataset):
         graph.src_mask = to_boolean_mask(np.arange(graph.num_nodes), graph.num_nodes)
         graph.tgt_mask = to_boolean_mask(np.arange(graph.num_nodes), graph.num_nodes)
 
-        # adj = edgeidx_to_adj(edge_index[0], edge_index[1], graph.num_nodes)
-        # graph.adj = adj
         graph.num_classes = graph_list[0].num_classes
         graph.edge_weight = torch.ones(graph.num_edges)
 
         return graph
 
     def pileup_generate(self):
-        balanced = False
         edge_feature = False
 
         print("here")

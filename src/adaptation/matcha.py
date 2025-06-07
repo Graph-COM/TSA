@@ -1,4 +1,3 @@
-import pdb
 from copy import deepcopy
 
 import torch
@@ -17,9 +16,7 @@ from .tent import TENT
 
 @ADAPTER_REGISTRY.register()
 class Matcha(BaseAdapter):
-    """
-    
-    """
+    """ """
 
     def __init__(self, pre_model, source_stats, adapter_config):
         """

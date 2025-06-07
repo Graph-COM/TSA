@@ -1,5 +1,3 @@
-import pdb
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -67,7 +65,7 @@ class T3A(BaseAdapter):
         weights = supports.T @ (labels)
         logits = z @ torch.nn.functional.normalize(weights, dim=0)
         return F.softmax(logits, dim=1)
-    
+
     def select_supports(self):
         ent_s = self.ent
         y_hat = self.labels.argmax(dim=1).long()
@@ -89,17 +87,6 @@ class T3A(BaseAdapter):
 
         return self.supports, self.labels
 
-    def no_adapt_pred(self, data):
-        self.model.eval()
-        self.model.to(self.device)
-        data = data.to(self.device)
-        _, z = self.featurizer(data)
-        supports, labels = self.select_supports()
-        supports = torch.nn.functional.normalize(supports, dim=1)
-        weights = supports.T @ (labels)
-        logits = z @ torch.nn.functional.normalize(weights, dim=0).detach()    
-        return F.softmax(logits, dim=1)
-                 
 
 def softmax_entropy(x: torch.Tensor) -> torch.Tensor:
     """Entropy of softmax distribution from logits."""

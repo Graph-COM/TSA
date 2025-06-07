@@ -1,12 +1,6 @@
-import os
-import pdb
-import random
-import sys
 from pathlib import Path
 
-import networkx as nx
 import numpy as np
-import scipy.sparse as sp
 import torch
 from ogb.nodeproppred import NodePropPredDataset
 from torch_geometric.data import Data, InMemoryDataset
@@ -90,9 +84,7 @@ class Arxiv(InMemoryDataset):
 
     @property
     def processed_file_names(self):
-        file_name = (
-            f"data_{self.start}_{self.end}_{self.target_val}_{self.seed}.pt"
-        )
+        file_name = f"data_{self.start}_{self.end}_{self.target_val}_{self.seed}.pt"
         return [str(file_name)]
 
     def process(self):
@@ -138,13 +130,6 @@ class Arxiv(InMemoryDataset):
             idx[int(self.target_val * idx_len) :], graph.num_nodes
         )
 
-        # tgt_val_mask, tgt_test_mask = num_per_class_split(
-        #     idx, graph, self.target_val
-        # )
-        # graph.tgt_val_mask = to_boolean_mask(tgt_val_mask, graph.num_nodes)
-        # graph.tgt_test_mask = to_boolean_mask(tgt_test_mask, graph.num_nodes)
-        # graph.target_validation_mask = idx[0 : int(0.2 * idx_len)]
-        # graph.target_testing_mask = idx[int(0.2 * idx_len) :]
         graph.src_mask = to_boolean_mask(idx, graph.num_nodes)
         graph.tgt_mask = to_boolean_mask(idx, graph.num_nodes)
 

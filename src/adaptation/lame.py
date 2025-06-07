@@ -50,7 +50,6 @@ class rbf_affinity(AffinityMatrix):
         self.k = kwargs["knn"]
 
     def __call__(self, X):
-        pdb.set_trace()
         N = X.size(0)
         dist = torch.norm(X.unsqueeze(0) - X.unsqueeze(1), dim=-1, p=2)  # [N, N]
         n_neighbors = min(self.k, N)
@@ -98,21 +97,13 @@ class LAME(BaseAdapter):
         self.model.to(self.device)
         data = data.to(self.device)
         logger = logging.getLogger(__name__)
-        # t0 = time.time()
         with torch.no_grad():
 
             feats, outputs = self.model(data)
             probs = F.softmax(outputs, dim=-1)  # [N, K]
             feats, probs = feats, probs
-
-            # t1 = time.time()
-            # self.metric_hook.scalar_dic["forward_time"].append(t1 - t0)
-
             Y = self.run_in_batch(feats.size(0), 1024, self.lame)(probs, feats)
 
-        # self.metric_hook.scalar_dic["optimization_time"].append(time.time() - t1)
-
-        # final_output = self.model.format_result(batched_inputs, Y)
         return Y
 
     def lame(
@@ -129,12 +120,6 @@ class LAME(BaseAdapter):
         Y = laplacian_optimization(unary, kernel)
         return Y
 
-    def no_adapt_pred(self, data):
-        self.model.eval()
-        self.model.to(self.device)
-        data = data.to(self.device)
-        _, output = self.model(data)
-        return F.softmax(output, dim=-1)
 
 def laplacian_optimization(unary, kernel, bound_lambda=1, max_steps=100):
 

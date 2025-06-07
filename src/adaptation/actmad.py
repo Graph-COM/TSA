@@ -1,11 +1,10 @@
-import pdb
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch_geometric.data import Data
-from src.model import GSN, GPRGNN, GCN
+
+from src.model import GCN, GPRGNN, GSN
 from src.utils import SaveEmb
 
 from .adapter_manager import ADAPTER_REGISTRY
@@ -15,7 +14,7 @@ from .base_adapter import BaseAdapter
 @ADAPTER_REGISTRY.register()
 class ActMAD(BaseAdapter):
     """
-    ActMAD from "ActMAD: Activation Matching to Align Distributions 
+    ActMAD from "ActMAD: Activation Matching to Align Distributions
     for Test-Time Training (CVPR 2023)"
     """
 
@@ -36,10 +35,20 @@ class ActMAD(BaseAdapter):
     def adapt(self, data: Data) -> torch.Tensor:
         self.model.to(self.device)
         data = data.to(self.device)
-        optimizer = optim.SGD(self.model.parameters(), lr=self.learning_rate, momentum=0.9, weight_decay=self.weight_decay, nesterov=True)
-        l1_loss = nn.L1Loss(reduction='mean')
-        src_feat_mean = [mean.to(self.device) for mean in self.source_stats["src_feat_mean"]]
-        src_feat_var = [var.to(self.device) for var in self.source_stats["src_feat_var"]]
+        optimizer = optim.SGD(
+            self.model.parameters(),
+            lr=self.learning_rate,
+            momentum=0.9,
+            weight_decay=self.weight_decay,
+            nesterov=True,
+        )
+        l1_loss = nn.L1Loss(reduction="mean")
+        src_feat_mean = [
+            mean.to(self.device) for mean in self.source_stats["src_feat_mean"]
+        ]
+        src_feat_var = [
+            var.to(self.device) for var in self.source_stats["src_feat_var"]
+        ]
         n_chosen_layers = len(src_feat_mean)
 
         self.model.train()
@@ -50,8 +59,10 @@ class ActMAD(BaseAdapter):
 
         optimizer.zero_grad()
         save_outputs_tta = [SaveEmb() for _ in range(n_chosen_layers)]
-        hooks_list_tta = [chosen_layers[i].register_forward_hook(save_outputs_tta[i])
-                            for i in range(n_chosen_layers)]
+        hooks_list_tta = [
+            chosen_layers[i].register_forward_hook(save_outputs_tta[i])
+            for i in range(n_chosen_layers)
+        ]
 
         _, output = self.model(data)
         act_mean_batch_tta = []
@@ -65,7 +76,9 @@ class ActMAD(BaseAdapter):
             save_outputs_tta[z].clear()
             hooks_list_tta[z].remove()
 
-        loss_mean = torch.tensor(0, requires_grad=True, dtype=torch.float).float().cuda()
+        loss_mean = (
+            torch.tensor(0, requires_grad=True, dtype=torch.float).float().cuda()
+        )
         loss_var = torch.tensor(0, requires_grad=True, dtype=torch.float).float().cuda()
         for i in range(n_chosen_layers):
             loss_mean += l1_loss(act_mean_batch_tta[i].cuda(), src_feat_mean[i].cuda())

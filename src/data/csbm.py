@@ -1,7 +1,4 @@
-import os
 import random
-import sys
-from pathlib import Path
 
 import networkx as nx
 import numpy as np
@@ -29,9 +26,7 @@ class CSBM(InMemoryDataset):
         self.root = root
         self.setting = setting
         self.sigma = data_config.sigma
-        # if seed is not None:
-        #     self.seed = seed
-        # else:
+
         self.seed = data_config.seed
         self.target_val = data_config.target_val
         super().__init__(root)
@@ -52,42 +47,50 @@ class CSBM(InMemoryDataset):
         MU = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
         if self.setting == "src":
             py = [1 / 3, 1 / 3, 1 / 3]
-            B = [[0.02, 0.005, 0.005], [0.005, 0.02, 0.005], [0.005,  0.005, 0.02]]
+            B = [[0.02, 0.005, 0.005], [0.005, 0.02, 0.005], [0.005, 0.005, 0.02]]
         elif self.setting == "src_imb":
             py = [0.1, 0.3, 0.6]
-            B = [[0.02, 0.005, 0.005], [0.005, 0.02, 0.005], [0.005,  0.005, 0.02]]
+            B = [[0.02, 0.005, 0.005], [0.005, 0.02, 0.005], [0.005, 0.005, 0.02]]
         elif self.setting == "nbr1":
             py = [0.1, 0.3, 0.6]
-            B = [[0.01, 0.0075, 0.0075], [0.0075,  0.01,  0.0075], [0.0075,  0.0075, 0.01]]
+            B = [[0.01, 0.0075, 0.0075], [0.0075, 0.01, 0.0075], [0.0075, 0.0075, 0.01]]
         elif self.setting == "nbr2":
             py = [0.1, 0.3, 0.6]
             B = [[0.01, 0.01, 0.01], [0.01, 0.01, 0.01], [0.01, 0.01, 0.01]]
         elif self.setting == "css1":
             py = [0.1, 0.3, 0.6]
-            B = [[0.01, 0.0075, 0.0075], [0.0075,  0.01,  0.0075], [0.0075,  0.0075, 0.01]]
-            B = [[i/2 for i in row] for row in B]
+            B = [[0.01, 0.0075, 0.0075], [0.0075, 0.01, 0.0075], [0.0075, 0.0075, 0.01]]
+            B = [[i / 2 for i in row] for row in B]
         elif self.setting == "css2":
             py = [0.1, 0.3, 0.6]
             B = [[0.01, 0.01, 0.01], [0.01, 0.01, 0.01], [0.01, 0.01, 0.01]]
-            B = [[i/2 for i in row] for row in B]
+            B = [[i / 2 for i in row] for row in B]
         elif self.setting == "str1":
             py = [0.1, 0.3, 0.6]
-            # B = [[0.075, 0.025, 0.025], [0.025, 0.075, 0.025], [0.025, 0.025, 0.075]]
-            B = [[0.015, 0.0075, 0.0075], [0.0075,  0.015,  0.0075], [0.0075,  0.0075, 0.015]]
-            B = [[i/2 for i in row] for row in B]
+
+            B = [
+                [0.015, 0.0075, 0.0075],
+                [0.0075, 0.015, 0.0075],
+                [0.0075, 0.0075, 0.015],
+            ]
+            B = [[i / 2 for i in row] for row in B]
         elif self.setting == "str2":
             py = [0.1, 0.3, 0.6]
             B = [[0.01, 0.01, 0.01], [0.01, 0.01, 0.01], [0.01, 0.01, 0.01]]
-            B = [[i/2 for i in row] for row in B]
+            B = [[i / 2 for i in row] for row in B]
         elif self.setting == "str3":
             py = [1 / 3, 1 / 3, 1 / 3]
-            # B = [[0.075, 0.025, 0.025], [0.025, 0.075, 0.025], [0.025, 0.025, 0.075]]
-            B = [[0.015, 0.0075, 0.0075], [0.0075,  0.015,  0.0075], [0.0075,  0.0075, 0.015]]
-            B = [[i/2 for i in row] for row in B]
+
+            B = [
+                [0.015, 0.0075, 0.0075],
+                [0.0075, 0.015, 0.0075],
+                [0.0075, 0.0075, 0.015],
+            ]
+            B = [[i / 2 for i in row] for row in B]
         elif self.setting == "str4":
             py = [1 / 3, 1 / 3, 1 / 3]
             B = [[0.01, 0.01, 0.01], [0.01, 0.01, 0.01], [0.01, 0.01, 0.01]]
-            B = [[i/2 for i in row] for row in B]
+            B = [[i / 2 for i in row] for row in B]
 
         N = [int(num_nodes * i) for i in py]
         B = [[i * 0.5 for i in row] for row in B]
@@ -180,7 +183,6 @@ class CSBM(InMemoryDataset):
         graph.src_mask = to_boolean_mask(np.arange(graph.num_nodes), graph.num_nodes)
         graph.tgt_mask = to_boolean_mask(np.arange(graph.num_nodes), graph.num_nodes)
 
-        # graph.adj = adj
         graph.num_classes = 3
         graph.edge_weight = torch.ones(graph.num_edges)
         edge_class = np.zeros((graph.num_edges, graph.num_classes, graph.num_classes))

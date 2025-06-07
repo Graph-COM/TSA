@@ -1,21 +1,13 @@
-import logging
-import pdb
-import time
 import copy
 from typing import Tuple
 
-import numpy as np
 import torch
-from torch import Tensor
-from sklearn.cluster import KMeans
-
 import torch.nn.functional as F
-from torch.nn import Parameter
 import torch.optim as optim
-
+from sklearn.cluster import KMeans
+from torch import Tensor
 from torch_geometric.data import Data
-from torch_geometric.utils import homophily, scatter, is_undirected
-from torch_sparse import coalesce
+from torch_geometric.utils import scatter
 
 from .adapter_manager import ADAPTER_REGISTRY
 from .base_adapter import BaseAdapter
@@ -58,7 +50,6 @@ class HomoTTT(BaseAdapter):
             loss.backward()
             optimizer.step()
 
-
         with torch.no_grad():
             # Get outputs from original and updated models
             original_logits = self.original_model(data)[1]
@@ -67,7 +58,7 @@ class HomoTTT(BaseAdapter):
             original_probs = F.softmax(original_logits, dim=-1)  # shape: (N, C)
             updated_probs = F.softmax(updated_logits, dim=-1)
 
-            # Get pseudo-labels from the emsemble of two models 
+            # Get pseudo-labels from the emsemble of two models
             # Gives slightly better results than updated_probs
             ensemble_probs = 0.5 * (original_probs + updated_probs)
             pseudo_labels = torch.argmax(ensemble_probs, dim=1)
@@ -77,7 +68,7 @@ class HomoTTT(BaseAdapter):
                 updated_probs=updated_probs,
                 edge_index=data.edge_index,
                 pseudo_labels=pseudo_labels,
-                k0=self.k0
+                k0=self.k0,
             )
 
         return final_probs
@@ -137,23 +128,32 @@ class HomoTTT(BaseAdapter):
                 kmeans = KMeans(n_clusters=self.data.num_classes, n_init=10)
                 # KMeans from sklearn too slow
                 pseudo_labels, _ = kmeans_torch(Z, num_clusters=self.data.num_classes)
-            edge_index, edge_mask = homophily_based_dropout_edge(edge_index=edge_index, pseudo_labels=pseudo_labels, drop_prob=p, force_undirected=True)
+            edge_index, edge_mask = homophily_based_dropout_edge(
+                edge_index=edge_index,
+                pseudo_labels=pseudo_labels,
+                drop_prob=p,
+                force_undirected=True,
+            )
             edge_weight = edge_weight[edge_mask]
             # edge_index, edge_weight = dropout_adj(edge_index, edge_weight, p=p)
 
         Z, _ = self.augument_predict(feat, edge_index, edge_weight)
         return Z
 
+
 def inner(t1, t2):
     t1 = t1 / (t1.norm(dim=1).view(-1, 1) + 1e-15)
     t2 = t2 / (t2.norm(dim=1).view(-1, 1) + 1e-15)
     return (1 - (t1 * t2).sum(1)).mean()
 
-def homophily_based_dropout_edge(edge_index: Tensor,
-                                  pseudo_labels: Tensor,
-                                  drop_prob: float = 0.5,
-                                  force_undirected: bool = False,
-                                  training: bool = True) -> Tuple[Tensor, Tensor]:
+
+def homophily_based_dropout_edge(
+    edge_index: Tensor,
+    pseudo_labels: Tensor,
+    drop_prob: float = 0.5,
+    force_undirected: bool = False,
+    training: bool = True,
+) -> Tuple[Tensor, Tensor]:
     """
     Drop edges with probability inversely related to homophily score.
     Higher homophily -> lower drop probability.
@@ -165,7 +165,7 @@ def homophily_based_dropout_edge(edge_index: Tensor,
     num_nodes = int(edge_index.max()) + 1  # assuming zero-based indexing
     node_homophily = compute_node_homophily(edge_index, pseudo_labels, num_nodes)
     row, col = edge_index
-    edge_homophily = (node_homophily[row] + node_homophily[col]) / 2.
+    edge_homophily = (node_homophily[row] + node_homophily[col]) / 2.0
 
     # Normalize homophily to drop probabilities: low homophily -> high drop probability
     drop_probs = drop_prob * (1.0 - edge_homophily)
@@ -184,15 +184,19 @@ def homophily_based_dropout_edge(edge_index: Tensor,
 
     return edge_index, edge_mask
 
-def compute_node_homophily(edge_index: Tensor, pseudo_labels: Tensor, num_nodes: int) -> Tensor:
+
+def compute_node_homophily(
+    edge_index: Tensor, pseudo_labels: Tensor, num_nodes: int
+) -> Tensor:
     """
     Compute homophily scores for each edge.
     """
     row, col = edge_index
     out = torch.zeros(row.size(0), device=row.device)
-    out[pseudo_labels[row] == pseudo_labels[col]] = 1.
-    out = scatter(out, col, 0, dim_size=pseudo_labels.size(0), reduce='mean')
+    out[pseudo_labels[row] == pseudo_labels[col]] = 1.0
+    out = scatter(out, col, 0, dim_size=pseudo_labels.size(0), reduce="mean")
     return out
+
 
 def kmeans_torch(x, num_clusters, num_iters=10):
     """
@@ -212,26 +216,33 @@ def kmeans_torch(x, num_clusters, num_iters=10):
         labels = dist.argmin(dim=1)
 
         # Recompute centroids
-        centroids = torch.stack([
-            x[labels == i].mean(dim=0) if (labels == i).any() else centroids[i]
-            for i in range(num_clusters)
-        ])
+        centroids = torch.stack(
+            [
+                x[labels == i].mean(dim=0) if (labels == i).any() else centroids[i]
+                for i in range(num_clusters)
+            ]
+        )
 
     return labels, centroids
 
-def select_model_predictions(original_probs: torch.Tensor, updated_probs: torch.Tensor,
-                             edge_index: torch.Tensor, pseudo_labels: torch.Tensor,
-                             k0: float = 1.0) -> torch.Tensor:
+
+def select_model_predictions(
+    original_probs: torch.Tensor,
+    updated_probs: torch.Tensor,
+    edge_index: torch.Tensor,
+    pseudo_labels: torch.Tensor,
+    k0: float = 1.0,
+) -> torch.Tensor:
     """
     Select between original or updated model probabilities based on node-wise homophily scores.
-    
+
     Args:
         original_probs: (N, C) softmax probabilities from original model
         updated_probs: (N, C) softmax probabilities from updated model
         edge_index: (2, E) graph edge index
         pseudo_labels: (N,) pseudo labels (from KMeans or ensemble)
         k0: sigmoid sharpness for acceptance
-    
+
     Returns:
         (N, C) final probabilities for each node
     """
@@ -243,12 +254,10 @@ def select_model_predictions(original_probs: torch.Tensor, updated_probs: torch.
 
     # Sample binary acceptance decision per node
     acceptance = torch.bernoulli(acceptance_probs)
-    
+
     # Select updated or original probabilities based on acceptance
     final_probs = torch.where(
-        acceptance.unsqueeze(1).bool(),
-        updated_probs,
-        original_probs
+        acceptance.unsqueeze(1).bool(), updated_probs, original_probs
     )
 
     return final_probs

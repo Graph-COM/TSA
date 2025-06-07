@@ -1,12 +1,6 @@
-import os
-import pdb
-import random
-import sys
 from pathlib import Path
 
-import networkx as nx
 import numpy as np
-import scipy.sparse as sp
 import torch
 from torch_geometric.data import Data, InMemoryDataset
 from torch_geometric.io import read_txt_array

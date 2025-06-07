@@ -3,7 +3,7 @@ from omegaconf import DictConfig
 from .arxiv import Arxiv
 from .csbm import CSBM
 from .dblp_acm import DBLP_ACM
-from .mag import MAG, Syn_MAG
+from .mag import MAG
 from .pileup import Pileup
 
 

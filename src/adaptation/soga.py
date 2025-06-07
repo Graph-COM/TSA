@@ -1,16 +1,14 @@
-import pdb
 import copy
 import random
-from random import randrange
 from collections import deque
+from random import randrange
 
+import networkx as nx
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import numpy as np
-import networkx as nx
-
 from torch_geometric.data import Data
 from torch_geometric.utils.convert import to_networkx
 from torch_sparse import SparseTensor
@@ -37,7 +35,6 @@ class SOGA(BaseAdapter):
         self.neigh_lambda = adapter_config.neigh_lambda
         self.num_negative_samples = 5
         self.num_positive_samples = 2
-        
 
     def adapt(self, data: Data) -> torch.Tensor:
         self.model.to(self.device)
@@ -46,7 +43,11 @@ class SOGA(BaseAdapter):
         target_structure_data = target_data.clone()
         row, col = data.edge_index
         self.num_target_nodes = data.x.size(0)
-        structure_adj = SparseTensor(row=row, col=col, sparse_sizes=(self.num_target_nodes, self.num_target_nodes))
+        structure_adj = SparseTensor(
+            row=row,
+            col=col,
+            sparse_sizes=(self.num_target_nodes, self.num_target_nodes),
+        )
         self.init_target(target_structure_data, target_data)
         optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
 
@@ -56,18 +57,29 @@ class SOGA(BaseAdapter):
             _, output = self.model(data)
             probs = F.softmax(output, dim=-1)
 
-            NCE_loss_struct = self.NCE_loss(probs, self.center_nodes_struct, self.positive_samples_struct,
-                                            self.negative_samples_struct)
-            NCE_loss_neigh = self.NCE_loss(probs, self.center_nodes_neigh, self.positive_samples_neigh,
-                                        self.negative_samples_neigh)
+            NCE_loss_struct = self.NCE_loss(
+                probs,
+                self.center_nodes_struct,
+                self.positive_samples_struct,
+                self.negative_samples_struct,
+            )
+            NCE_loss_neigh = self.NCE_loss(
+                probs,
+                self.center_nodes_neigh,
+                self.positive_samples_neigh,
+                self.negative_samples_neigh,
+            )
 
             IM_loss = self.ent(probs) - self.div(probs)
 
-            loss = IM_loss + self.struct_lambda * NCE_loss_struct + self.neigh_lambda * NCE_loss_neigh
+            loss = (
+                IM_loss
+                + self.struct_lambda * NCE_loss_struct
+                + self.neigh_lambda * NCE_loss_neigh
+            )
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-
 
         self.model.eval()
         _, output = self.model(data)
@@ -78,16 +90,23 @@ class SOGA(BaseAdapter):
         self.target_G_struct = to_networkx(graph_struct)
         self.target_G_neigh = to_networkx(graph_neigh)
 
-        self.Positive_Sampler = RandomWalker(self.target_G_struct, p=0.25, q=2, use_rejection_sampling=1)
+        self.Positive_Sampler = RandomWalker(
+            self.target_G_struct, p=0.25, q=2, use_rejection_sampling=1
+        )
         self.Negative_Sampler = Negative_Sampler(self.target_G_struct)
-        self.center_nodes_struct, self.positive_samples_struct = self.generate_positive_samples()
+        self.center_nodes_struct, self.positive_samples_struct = (
+            self.generate_positive_samples()
+        )
         self.negative_samples_struct = self.generate_negative_samples()
-        
-        self.Positive_Sampler = RandomWalker(self.target_G_neigh, p=0.25, q=2, use_rejection_sampling=1)
-        self.Negative_Sampler = Negative_Sampler(self.target_G_struct)
-        self.center_nodes_neigh, self.positive_samples_neigh = self.generate_positive_samples()
-        self.negative_samples_neigh = self.generate_negative_samples()
 
+        self.Positive_Sampler = RandomWalker(
+            self.target_G_neigh, p=0.25, q=2, use_rejection_sampling=1
+        )
+        self.Negative_Sampler = Negative_Sampler(self.target_G_struct)
+        self.center_nodes_neigh, self.positive_samples_neigh = (
+            self.generate_positive_samples()
+        )
+        self.negative_samples_neigh = self.generate_negative_samples()
 
     def NCE_loss(self, outputs, center_nodes, positive_samples, negative_samples):
         negative_embedding = F.embedding(negative_samples, outputs)
@@ -111,8 +130,9 @@ class SOGA(BaseAdapter):
 
     def generate_positive_samples(self):
         self.Positive_Sampler.preprocess_transition_probs()
-        self.positive_samples = self.Positive_Sampler.simulate_walks(num_walks=1, walk_length=self.num_positive_samples,
-                                                                     workers=1, verbose=1)
+        self.positive_samples = self.Positive_Sampler.simulate_walks(
+            num_walks=1, walk_length=self.num_positive_samples, workers=1, verbose=1
+        )
         for i in range(len(self.positive_samples)):
             if len(self.positive_samples[i]) != 2:
                 self.positive_samples[i].append(self.positive_samples[i][0])
@@ -125,9 +145,16 @@ class SOGA(BaseAdapter):
         return center_nodes, positive_samples
 
     def generate_negative_samples(self):
-        negative_samples = torch.tensor([self.Negative_Sampler.sample() for _ in
-                                         range(self.num_negative_samples * self.num_target_nodes)]).view(
-            [self.num_target_nodes, self.num_negative_samples]).to(self.device)
+        negative_samples = (
+            torch.tensor(
+                [
+                    self.Negative_Sampler.sample()
+                    for _ in range(self.num_negative_samples * self.num_target_nodes)
+                ]
+            )
+            .view([self.num_target_nodes, self.num_negative_samples])
+            .to(self.device)
+        )
 
         return negative_samples
 
@@ -138,7 +165,9 @@ class SOGA(BaseAdapter):
 
     def div(self, softmax_output):
         mean_softmax_output = softmax_output.mean(dim=0)
-        diversity_loss = torch.sum(-mean_softmax_output * torch.log(mean_softmax_output + 1e-8))
+        diversity_loss = torch.sum(
+            -mean_softmax_output * torch.log(mean_softmax_output + 1e-8)
+        )
 
         return diversity_loss
 
@@ -179,12 +208,14 @@ class RandomWalker:
             if len(cur_nbrs) > 0:
                 if len(walk) == 1:
                     walk.append(
-                        cur_nbrs[alias_sample(alias_nodes[cur][0], alias_nodes[cur][1])])
+                        cur_nbrs[alias_sample(alias_nodes[cur][0], alias_nodes[cur][1])]
+                    )
                 else:
                     prev = walk[-2]
                     edge = (prev, cur)
-                    next_node = cur_nbrs[alias_sample(alias_edges[edge][0],
-                                                      alias_edges[edge][1])]
+                    next_node = cur_nbrs[
+                        alias_sample(alias_edges[edge][0], alias_edges[edge][1])
+                    ]
                     walk.append(next_node)
             else:
                 break
@@ -203,7 +234,7 @@ class RandomWalker:
             lower_bound = min(1.0, min(inv_p, inv_q))
             shatter = 0
             second_upper_bound = max(1.0, inv_q)
-            if (inv_p > second_upper_bound):
+            if inv_p > second_upper_bound:
                 shatter = second_upper_bound / nbrs_num
                 upper_bound = second_upper_bound + shatter
             return upper_bound, lower_bound, shatter
@@ -219,25 +250,28 @@ class RandomWalker:
             if len(cur_nbrs) > 0:
                 if len(walk) == 1:
                     walk.append(
-                        cur_nbrs[alias_sample(alias_nodes[cur][0], alias_nodes[cur][1])])
+                        cur_nbrs[alias_sample(alias_nodes[cur][0], alias_nodes[cur][1])]
+                    )
                 else:
                     upper_bound, lower_bound, shatter = rejection_sample(
-                        inv_p, inv_q, len(cur_nbrs))
+                        inv_p, inv_q, len(cur_nbrs)
+                    )
                     prev = walk[-2]
                     prev_nbrs = set(G.neighbors(prev))
                     while True:
                         prob = random.random() * upper_bound
-                        if (prob + shatter >= upper_bound):
+                        if prob + shatter >= upper_bound:
                             next_node = prev
                             break
-                        next_node = cur_nbrs[alias_sample(
-                            alias_nodes[cur][0], alias_nodes[cur][1])]
-                        if (prob < lower_bound):
+                        next_node = cur_nbrs[
+                            alias_sample(alias_nodes[cur][0], alias_nodes[cur][1])
+                        ]
+                        if prob < lower_bound:
                             break
-                        if (prob < inv_p and next_node == prev):
+                        if prob < inv_p and next_node == prev:
                             break
                         _prob = 1.0 if next_node in prev_nbrs else inv_q
-                        if (prob < _prob):
+                        if prob < _prob:
                             break
                     walk.append(next_node)
             else:
@@ -260,20 +294,28 @@ class RandomWalker:
 
         return results
 
-    def _simulate_walks(self, nodes, num_walks, walk_length, ):
+    def _simulate_walks(
+        self,
+        nodes,
+        num_walks,
+        walk_length,
+    ):
         walks = []
         for _ in range(num_walks):
             random.shuffle(nodes)
             for v in nodes:
                 if self.p == 1 and self.q == 1:
-                    walks.append(self.deepwalk_walk(
-                        walk_length=walk_length, start_node=v))
+                    walks.append(
+                        self.deepwalk_walk(walk_length=walk_length, start_node=v)
+                    )
                 elif self.use_rejection_sampling:
-                    walks.append(self.node2vec_walk2(
-                        walk_length=walk_length, start_node=v))
+                    walks.append(
+                        self.node2vec_walk2(walk_length=walk_length, start_node=v)
+                    )
                 else:
-                    walks.append(self.node2vec_walk(
-                        walk_length=walk_length, start_node=v))  # [1:]
+                    walks.append(
+                        self.node2vec_walk(walk_length=walk_length, start_node=v)
+                    )  # [1:]
         return walks
 
     def get_alias_edge(self, t, v):
@@ -289,7 +331,7 @@ class RandomWalker:
 
         unnormalized_probs = []
         for x in G.neighbors(v):
-            weight = G[v][x].get('weight', 1.0)  # w_vx
+            weight = G[v][x].get("weight", 1.0)  # w_vx
             if x == t:  # d_tx == 0
                 unnormalized_probs.append(weight / p)
             elif G.has_edge(x, t):  # d_tx == 1
@@ -297,8 +339,7 @@ class RandomWalker:
             else:  # d_tx > 1
                 unnormalized_probs.append(weight / q)
         norm_const = sum(unnormalized_probs)
-        normalized_probs = [
-            float(u_prob) / norm_const for u_prob in unnormalized_probs]
+        normalized_probs = [float(u_prob) / norm_const for u_prob in unnormalized_probs]
 
         return create_alias_table(normalized_probs)
 
@@ -309,11 +350,13 @@ class RandomWalker:
         G = self.G
         alias_nodes = {}
         for node in G.nodes():
-            unnormalized_probs = [G[node][nbr].get('weight', 1.0)
-                                  for nbr in G.neighbors(node)]
+            unnormalized_probs = [
+                G[node][nbr].get("weight", 1.0) for nbr in G.neighbors(node)
+            ]
             norm_const = sum(unnormalized_probs)
             normalized_probs = [
-                float(u_prob) / norm_const for u_prob in unnormalized_probs]
+                float(u_prob) / norm_const for u_prob in unnormalized_probs
+            ]
             alias_nodes[node] = create_alias_table(normalized_probs)
 
         if not self.use_rejection_sampling:
@@ -322,14 +365,16 @@ class RandomWalker:
             for edge in G.edges():
                 alias_edges[edge] = self.get_alias_edge(edge[0], edge[1])
                 if not G.is_directed():
-                    alias_edges[(edge[1], edge[0])] = self.get_alias_edge(edge[1], edge[0])
+                    alias_edges[(edge[1], edge[0])] = self.get_alias_edge(
+                        edge[1], edge[0]
+                    )
                 self.alias_edges = alias_edges
 
         self.alias_nodes = alias_nodes
         return
 
 
-class Negative_Sampler():
+class Negative_Sampler:
     def __init__(self, G):
         self.G = G
         _probs = [G.degree(i) for i in G.nodes()]
@@ -372,7 +417,7 @@ class Negative_Sampler():
 
     def construct_graph_origin(self, G):
         new_G = nx.Graph()
-        new_G.graph['degree'] = 0
+        new_G.graph["degree"] = 0
         dq = deque()
         for iter in range(self.num_walks):
             for u in G.nodes():
@@ -381,22 +426,22 @@ class Negative_Sampler():
                 v = u
                 if v not in new_G:
                     new_G.add_node(v)
-                    new_G.node[v]['degree'] = 0
+                    new_G.node[v]["degree"] = 0
                 for t in range(self.walk_length):
                     adj = list(G[v])
                     v_id = random.randint(0, len(adj) - 1)
                     v = adj[v_id]
                     if v not in new_G:
                         new_G.add_node(v)
-                        new_G.node[v]['degree'] = 0
+                        new_G.node[v]["degree"] = 0
                     for it in dq:
                         if it in new_G[v]:
-                            new_G[v][it]['weight'] += 1
+                            new_G[v][it]["weight"] += 1
                         else:
                             new_G.add_edge(v, it, weight=1)
-                        new_G.graph['degree'] += 1
-                        new_G.node[v]['degree'] += 1
-                        new_G.node[it]['degree'] += 1
+                        new_G.graph["degree"] += 1
+                        new_G.node[v]["degree"] += 1
+                        new_G.node[it]["degree"] += 1
                     dq.append(v)
                     if len(dq) > self.window_size:
                         dq.popleft()
@@ -423,8 +468,7 @@ def create_alias_table(area_ratio):
         small_idx, large_idx = small.pop(), large.pop()
         accept[small_idx] = area_ratio_[small_idx]
         alias[small_idx] = large_idx
-        area_ratio_[large_idx] = area_ratio_[large_idx] - \
-                                 (1 - area_ratio_[small_idx])
+        area_ratio_[large_idx] = area_ratio_[large_idx] - (1 - area_ratio_[small_idx])
         if area_ratio_[large_idx] < 1.0:
             small.append(large_idx)
         else:

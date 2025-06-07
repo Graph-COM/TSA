@@ -1,5 +1,3 @@
-import pdb
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -46,20 +44,6 @@ class TENT(BaseAdapter):
                 m.track_running_stats = False
                 m.running_mean = None
                 m.running_var = None
-                # elif self.adapter_config.bn_classifier:
-                #     m.requires_grad_(True)
-                #     m.track_running_stats = False
-                #     m.running_mean = None
-                #     m.running_var = None
-                #     # self.model.bn_mlp.requires_grad_(True)
-                #     # self.model.bn_mlp.track_running_stats = False
-                #     # self.model.bn_mlp.running_mean = None
-                #     # self.model.bn_mlp.running_var = None
-                # elif self.adapter_config.bn_feature and m in self.model.bns:
-                #     m.requires_grad_(True)
-                #     m.track_running_stats = False
-                #     m.running_mean = None
-                #     m.running_var = None
 
     def adapt(self, data: Data) -> torch.Tensor:
         self.model.to(self.device)
@@ -92,12 +76,6 @@ class TENT(BaseAdapter):
         probs = F.softmax(output, dim=-1)
         return probs
 
-    def no_adapt_pred(self, data):
-        self.model.eval()
-        self.model.to(self.device)
-        data = data.to(self.device)
-        _, output = self.model(data)
-        return F.softmax(output, dim=-1)
 
 def softmax_entropy(x: torch.Tensor) -> torch.Tensor:
     """Entropy of softmax distribution from logits."""
