@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch import Tensor
 from torch_geometric.data import Data
 
 from src.model import GCN, GPRGNN, GSN
@@ -15,7 +16,7 @@ from .base_adapter import BaseAdapter
 class ActMAD(BaseAdapter):
     """
     ActMAD from "ActMAD: Activation Matching to Align Distributions
-    for Test-Time Training (CVPR 2023)"
+    for Test-Time Training (CVPR 2023)".
     """
 
     def __init__(self, pre_model, source_stats, adapter_config):
@@ -32,7 +33,7 @@ class ActMAD(BaseAdapter):
         elif isinstance(self.model, GCN):
             self.align_module = type(self.model.conv[0])
 
-    def adapt(self, data: Data) -> torch.Tensor:
+    def adapt(self, data: Data) -> Tensor:
         self.model.to(self.device)
         data = data.to(self.device)
         optimizer = optim.SGD(
@@ -92,8 +93,3 @@ class ActMAD(BaseAdapter):
         _, output = self.model(data)
         probs = F.softmax(output, dim=-1)
         return probs
-
-
-def softmax_entropy(x: torch.Tensor) -> torch.Tensor:
-    """Entropy of softmax distribution from logits."""
-    return -(x.softmax(1) * x.log_softmax(1)).sum(1)

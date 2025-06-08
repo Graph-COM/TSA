@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from sklearn.metrics import balanced_accuracy_score
+from torch import Tensor
 from torch_geometric.data import Data
 
 from .adapter_manager import ADAPTER_REGISTRY
@@ -16,13 +17,13 @@ from .tent import TENT
 
 @ADAPTER_REGISTRY.register()
 class Matcha(BaseAdapter):
-    """ """
+    """
+    Matcha from "Matcha: Mitigating Graph Structure Shifts
+    with Test-Time Adaptation (ICLR 2025)".
+    Matcha variants include Matcha-T3A, Matcha-TENT, and Matcha-LAME.
+    """
 
     def __init__(self, pre_model, source_stats, adapter_config):
-        """
-        Args:
-            cfg (CfgNode):
-        """
         super().__init__(pre_model, source_stats, adapter_config)
         self.adapter_config = adapter_config
         self.source_stats = source_stats
@@ -57,7 +58,7 @@ class Matcha(BaseAdapter):
             Z, _ = self.model(data)
         return Z, probs
 
-    def adapt(self, data: Data) -> torch.Tensor:
+    def adapt(self, data: Data) -> Tensor:
         self.model.to(self.device)
         data = data.to(self.device)
 

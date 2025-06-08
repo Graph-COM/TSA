@@ -1,17 +1,12 @@
 # @package _global_
 adapter_config:
   name: TSA_TENT
-  iter_epochs: 10
-  scale_epochs: 10
+  iter_epochs: 1
+  scale_epochs: 1
   scale_lr: 0.001
-  scale_label: entropy
   scale_thre: 0.1
   pa_ratio: 0.01
-  init_type: predict_target
   cal_type: predict_target
-  reweight: no_rew
-  alpha: 1
-  weight_deg_norm: ctr_deg
   base_tta: TENT
   bn_feature: ${model_config.bn_feature}
   bn_classifier: ${model_config.bn_classifier}

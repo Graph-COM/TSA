@@ -1,5 +1,4 @@
 import logging
-import pdb
 from typing import Dict, List
 
 import torch
@@ -65,7 +64,7 @@ class rbf_affinity(AffinityMatrix):
 
 class linear_affinity(AffinityMatrix):
 
-    def __call__(self, X: torch.Tensor):
+    def __call__(self, X: Tensor):
         """
         X: [N, d]
         """
@@ -75,14 +74,10 @@ class linear_affinity(AffinityMatrix):
 @ADAPTER_REGISTRY.register()
 class LAME(BaseAdapter):
     """
-    Our proposed method based on Laplacian Regularization.
+    LAME from "Parameter-free Online Test-time Adaptation (CVPR 2022)".
     """
 
     def __init__(self, pre_model, source_stats, adapter_config):
-        """
-        Args:
-            cfg (CfgNode):
-        """
         super().__init__(pre_model, source_stats, adapter_config)
         self.kNN = self.adapter_config.kNN
         self.sigma = self.adapter_config.sigma
@@ -92,7 +87,7 @@ class LAME(BaseAdapter):
         self.force_symmetry = False
 
     @torch.no_grad()
-    def adapt(self, data: Data) -> torch.Tensor:
+    def adapt(self, data: Data) -> Tensor:
         self.model.eval()
         self.model.to(self.device)
         data = data.to(self.device)
@@ -108,7 +103,7 @@ class LAME(BaseAdapter):
 
     def lame(
         self, probs: Tensor, feats: Tensor, bound_lambda=1, max_steps=100
-    ) -> torch.Tensor:
+    ) -> Tensor:
         # --- Get unary and terms and kernel ---
         unary = -torch.log(probs + 1e-10)  # [N, K]
         feats = F.normalize(feats, p=2, dim=-1)  # [N, d]

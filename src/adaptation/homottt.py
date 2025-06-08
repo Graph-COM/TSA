@@ -16,20 +16,17 @@ from .base_adapter import BaseAdapter
 @ADAPTER_REGISTRY.register()
 class HomoTTT(BaseAdapter):
     """
-    Our proposed method based on Laplacian Regularization.
+    HomoTTT from "A Fully Test-time Training Framework for Semi-supervised
+    Node Classification on Out-of-Distribution Graphs (KDD 2024)".
     """
 
     def __init__(self, pre_model, source_stats, adapter_config):
-        """
-        Args:
-            cfg (CfgNode):
-        """
         super().__init__(pre_model, source_stats, adapter_config)
         self.epochs = adapter_config.epochs
         self.learning_rate = adapter_config.lr
         self.k0 = adapter_config.k0
 
-    def adapt(self, data: Data) -> torch.Tensor:
+    def adapt(self, data: Data) -> Tensor:
         self.model.eval()
         self.model.to(self.device)
         data = data.to(self.device)
@@ -227,12 +224,12 @@ def kmeans_torch(x, num_clusters, num_iters=10):
 
 
 def select_model_predictions(
-    original_probs: torch.Tensor,
-    updated_probs: torch.Tensor,
-    edge_index: torch.Tensor,
-    pseudo_labels: torch.Tensor,
+    original_probs: Tensor,
+    updated_probs: Tensor,
+    edge_index: Tensor,
+    pseudo_labels: Tensor,
     k0: float = 1.0,
-) -> torch.Tensor:
+) -> Tensor:
     """
     Select between original or updated model probabilities based on node-wise homophily scores.
 

@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch import Tensor
 from torch_geometric.data import Data
 
 from .adapter_manager import ADAPTER_REGISTRY
@@ -11,14 +12,11 @@ from .base_adapter import BaseAdapter
 @ADAPTER_REGISTRY.register()
 class TENT(BaseAdapter):
     """
-    Our proposed method based on Laplacian Regularization.
+    TENT from "Tent: Fully Test-time Adaptation by
+    Entropy Minimization (ICLR 2021)".
     """
 
     def __init__(self, pre_model, source_stats, adapter_config):
-        """
-        Args:
-            cfg (CfgNode):
-        """
         super().__init__(pre_model, source_stats, adapter_config)
         self.epochs = adapter_config.epochs
         self.learning_rate = adapter_config.lr
@@ -45,7 +43,7 @@ class TENT(BaseAdapter):
                 m.running_mean = None
                 m.running_var = None
 
-    def adapt(self, data: Data) -> torch.Tensor:
+    def adapt(self, data: Data) -> Tensor:
         self.model.to(self.device)
         data = data.to(self.device)
         optimizer = optim.Adam(self.tent_param, lr=self.learning_rate)
@@ -77,6 +75,6 @@ class TENT(BaseAdapter):
         return probs
 
 
-def softmax_entropy(x: torch.Tensor) -> torch.Tensor:
+def softmax_entropy(x: Tensor) -> Tensor:
     """Entropy of softmax distribution from logits."""
     return -(x.softmax(1) * x.log_softmax(1)).sum(1)

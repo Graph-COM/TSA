@@ -3,6 +3,7 @@ import logging
 import numpy as np
 import torch
 import torch.nn.functional as F
+from torch import Tensor
 from torch.nn import Parameter
 from torch_geometric.data import Data
 from torch_geometric.utils import dropout_adj
@@ -15,14 +16,11 @@ from .base_adapter import BaseAdapter
 @ADAPTER_REGISTRY.register()
 class GTrans(BaseAdapter):
     """
-    Our proposed method based on Laplacian Regularization.
+    GTrans from "Empowering graph representation learning with test-time graph
+    transformation (ICLR 2023)".
     """
 
     def __init__(self, pre_model, source_stats, adapter_config):
-        """
-        Args:
-            cfg (CfgNode):
-        """
         super().__init__(pre_model, source_stats, adapter_config)
 
         self.lr_feat = adapter_config.lr_feat
@@ -34,13 +32,13 @@ class GTrans(BaseAdapter):
         ##############################
         self.max_final_samples = 5
         self.eps = 1e-7
-        self.modified_edge_index: torch.Tensor = None
-        self.perturbed_edge_weight: torch.Tensor = None
+        self.modified_edge_index: Tensor = None
+        self.perturbed_edge_weight: Tensor = None
         self.epochs_resampling = self.epochs
         self.do_synchronize = True
         self.model.requires_grad_(False)
 
-    def adapt(self, data: Data) -> torch.Tensor:
+    def adapt(self, data: Data) -> Tensor:
         self.model.eval()
         self.model.to(self.device)
         data = data.to(self.device)
@@ -306,7 +304,7 @@ class GTrans(BaseAdapter):
         )
 
 
-def linear_to_triu_idx(n: int, lin_idx: torch.Tensor) -> torch.Tensor:
+def linear_to_triu_idx(n: int, lin_idx: Tensor) -> Tensor:
     row_idx = (
         n
         - 2
@@ -325,7 +323,7 @@ def linear_to_triu_idx(n: int, lin_idx: torch.Tensor) -> torch.Tensor:
 
 
 def grad_with_checkpoint(outputs, inputs):
-    inputs = (inputs,) if isinstance(inputs, torch.Tensor) else tuple(inputs)
+    inputs = (inputs,) if isinstance(inputs, Tensor) else tuple(inputs)
     for input in inputs:
         if not input.is_leaf:
             input.retain_grad()

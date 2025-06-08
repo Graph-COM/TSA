@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch import Tensor
 from torch_geometric.data import Data
 
 from .adapter_manager import ADAPTER_REGISTRY
@@ -11,14 +12,12 @@ from .base_adapter import BaseAdapter
 @ADAPTER_REGISTRY.register()
 class T3A(BaseAdapter):
     """
-    Our proposed method based on Laplacian Regularization.
+    T3A from "Test-Time Classifier Adjustment Module for
+    Model-Agnostic Domain Generalization (NeurIPS 2021)".
     """
 
     def __init__(self, pre_model, source_stats, adapter_config):
-        """
-        Args:
-            cfg (CfgNode):
-        """
+
         super().__init__(pre_model, source_stats, adapter_config)
         self.filter_K = adapter_config.filter_K
 
@@ -39,7 +38,7 @@ class T3A(BaseAdapter):
         self.ent = self.warmup_ent.data
 
     @torch.no_grad()
-    def adapt(self, data: Data) -> torch.Tensor:
+    def adapt(self, data: Data) -> Tensor:
         self.model.eval()
         self.model.to(self.device)
         data = data.to(self.device)
@@ -88,7 +87,7 @@ class T3A(BaseAdapter):
         return self.supports, self.labels
 
 
-def softmax_entropy(x: torch.Tensor) -> torch.Tensor:
+def softmax_entropy(x: Tensor) -> Tensor:
     """Entropy of softmax distribution from logits."""
     return -(x.softmax(1) * x.log_softmax(1)).sum(1)
 

@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch import Tensor
 from torch_geometric.data import Data
 from torch_geometric.utils.convert import to_networkx
 from torch_sparse import SparseTensor
@@ -20,14 +21,10 @@ from .base_adapter import BaseAdapter
 @ADAPTER_REGISTRY.register()
 class SOGA(BaseAdapter):
     """
-    Our proposed method based on Laplacian Regularization.
+    SOGA from "Source Free Graph Unsupervised Domain Adaptation (WSDM 2024)".
     """
 
     def __init__(self, pre_model, source_stats, adapter_config):
-        """
-        Args:
-            cfg (CfgNode):
-        """
         super().__init__(pre_model, source_stats, adapter_config)
         self.epochs = adapter_config.epochs
         self.learning_rate = adapter_config.lr
@@ -36,7 +33,7 @@ class SOGA(BaseAdapter):
         self.num_negative_samples = 5
         self.num_positive_samples = 2
 
-    def adapt(self, data: Data) -> torch.Tensor:
+    def adapt(self, data: Data) -> Tensor:
         self.model.to(self.device)
         data = data.to(self.device)
         target_data = Data(x=data.x, edge_index=data.edge_index)
