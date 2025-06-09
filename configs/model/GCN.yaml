@@ -15,5 +15,3 @@ model_config:
   weigh_decay: 0
   loss_name: cross_entropy
   patience: 10
-  train_type: no_bal
-  # train_type: no_bal or bal

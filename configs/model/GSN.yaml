@@ -14,8 +14,4 @@ model_config:
   learning_rate: 0.003
   dropout: 0.5
   weigh_decay: 0
-  rw_lmda: 1
   loss_name: cross_entropy
-  patience: 10
-  train_type: no_bal
-  # train_type: no_bal or bal
