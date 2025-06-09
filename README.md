@@ -1,5 +1,5 @@
 # TSA
-Source code of "Structural Alignment Improves Graph Test-Time Adaptation"
+Source code of ["Structural Alignment Improves Graph Test-Time Adaptation"](https://arxiv.org/abs/2502.18334).
 
 ## How TSA tackles test-time distribution shifts?
 
